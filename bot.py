@@ -377,7 +377,7 @@ async def test_protection(ctx):
 
 TOKEN = os.getenv('DISCORD_TOKEN')
 
-if TOKEN and TOKEN != 'YOUR_BOT_TOKEN_HERE':
+if TOKEN and TOKEN != 'MTUwODQ5OTI5MDk2Njg1MTcyNw.GLTkWf.ZPdFWL_amxFkbJfZ-I77d-YunMtxzCvIHT0OSE':
     print("Starting bot...")
     bot.run(TOKEN)
 else:
