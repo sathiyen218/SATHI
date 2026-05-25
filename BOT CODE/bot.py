@@ -387,7 +387,7 @@ except:
 
 TOKEN = os.getenv('DISCORD_TOKEN')
 
-if TOKEN and TOKEN != 'YOUR_BOT_TOKEN_HERE':
+if TOKEN and TOKEN != 'MTUwODQ5OTI5MDk2Njg1MTcyNw.GINIMH.AWJAZzNUTEErSV7OZbVW6XpcNm1fmeJuDMk0ag':
     print("Starting bot...")
     bot.run(TOKEN)
 else:
