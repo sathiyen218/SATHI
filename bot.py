@@ -2,8 +2,16 @@ import discord
 from discord.ext import commands
 import time
 import re
-from datetime import datetime, timedelta
+import os
 import asyncio
+from datetime import datetime, timedelta
+
+# Try to load .env file
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
 
 # Bot setup
 intents = discord.Intents.default()
@@ -29,15 +37,15 @@ def is_staff_member(member):
     
     if member.guild_permissions.administrator or member.guild_permissions.kick_members:
         return True
-    
+
     if member.guild_permissions.manage_messages or member.guild_permissions.manage_guild:
         return True
-    
+
     mod_role_names = ['mod', 'moderator', 'moderators', 'staff', 'admin', 'administrator', 'management', 'team']
     for role in member.roles:
         if role.name.lower() in mod_role_names:
             return True
-    
+
     return False
 
 def contains_promotion(content):
@@ -51,11 +59,10 @@ def contains_promotion(content):
         r'(?i)i give .*script',
         r'(?i)free script',
     ]
-    
     for pattern in promotion_patterns:
         if re.search(pattern, content, re.IGNORECASE):
             return True, pattern
-    
+
     return False, None
 
 @bot.event
@@ -82,7 +89,7 @@ async def on_message(message):
     if is_staff_member(message.author):
         await bot.process_commands(message)
         return
-    
+
     # ============================================
     # IMAGE DELETION - Delete ALL images silently
     # ============================================
@@ -104,10 +111,7 @@ async def on_message(message):
                     print(f"Error deleting image: {e}")
         
         # If it has attachments but not images (other files), let it through
-        # (or you can also delete them by uncommenting below)
-        # await message.delete()
-        # return
-    
+
     # ============================================
     # PROMOTION DETECTION (Warning → Kick) - TEXT ONLY
     # ============================================
@@ -115,29 +119,28 @@ async def on_message(message):
     if is_promo:
         await handle_promotion(message, promo_content)
         return
-    
+
     # ============================================
     # SPAM DETECTION (Warning → Kick) - TEXT ONLY
     # ============================================
     if await is_spamming(message.author.id):
         await handle_spam(message)
         return
-    
+
     await bot.process_commands(message)
 
 async def handle_promotion(message, promo_content):
     """Handle promotional messages - Warning then kick"""
     user_id = message.author.id
-    
     if user_id not in user_promotions:
         user_promotions[user_id] = {
             'warning_count': 0,
             'last_warning_time': None
         }
-    
+
     tracker = user_promotions[user_id]
     current_time = time.time()
-    
+
     if tracker['last_warning_time'] and (current_time - tracker['last_warning_time']) < WARNING_COOLDOWN:
         await kick_for_promotion(message, promo_content)
         if user_id in user_promotions:
@@ -151,7 +154,6 @@ async def warn_for_promotion(message, promo_content):
     """Send warning for promotional content"""
     try:
         await message.delete()
-        
         embed = discord.Embed(
             title="⚠️ PROMOTION WARNING ⚠️",
             description=f"{message.author.mention} **NO PROMOTING ALLOWED!**",
@@ -186,7 +188,6 @@ async def kick_for_promotion(message, promo_content):
     try:
         user = message.author
         guild = message.guild
-        
         try:
             await message.delete()
         except:
@@ -212,7 +213,7 @@ async def kick_for_promotion(message, promo_content):
         if user.id in user_promotions:
             del user_promotions[user.id]
         
-        print(f"🔨 KICKED FOR PROMOTION: {user.name}")
+        print(f" KICKED FOR PROMOTION: {user.name}")
         
     except discord.Forbidden:
         await message.channel.send("❌ I don't have permission to kick members!")
@@ -222,24 +223,22 @@ async def kick_for_promotion(message, promo_content):
 async def is_spamming(user_id):
     """Check if user is spamming"""
     current_time = time.time()
-    
     if user_id not in user_messages:
         user_messages[user_id] = UserTrack(user_id)
-    
+
     tracker = user_messages[user_id]
     tracker.message_times.append(current_time)
-    
+
     cutoff_time = current_time - SPAM_TIME_WINDOW
     tracker.message_times = [msg_time for msg_time in tracker.message_times 
                             if msg_time > cutoff_time]
-    
+
     return len(tracker.message_times) > SPAM_MESSAGE_COUNT
 
 async def handle_spam(message):
     """Handle spammer with warning first, then kick"""
     user_id = message.author.id
     tracker = user_messages[user_id]
-    
     current_time = time.time()
     if tracker.last_warning_time and (current_time - tracker.last_warning_time) < WARNING_COOLDOWN:
         await kick_spammer(message)
@@ -251,7 +250,7 @@ async def warn_spammer(message):
     """Send warning to spammer"""
     try:
         def is_spam_message(msg):
-            return msg.author == message.author and (datetime.utcnow() - msg.created_at).seconds <= SPAM_TIME_WINDOW
+            return msg.author == message.author and (datetime.utcnow() - msg.created_at).total_seconds() <= SPAM_TIME_WINDOW
         
         await message.channel.purge(limit=SPAM_MESSAGE_COUNT + 5, check=is_spam_message)
         
@@ -279,7 +278,7 @@ async def warn_spammer(message):
         except:
             pass
         
-        print(f"⚠️ SPAM WARNING: {message.author.name}")
+        print(f"️ SPAM WARNING: {message.author.name}")
         
     except Exception as e:
         print(f"Error warning spammer: {e}")
@@ -289,9 +288,8 @@ async def kick_spammer(message):
     try:
         user = message.author
         guild = message.guild
-        
         def is_recent(msg):
-            return msg.author == user and (datetime.utcnow() - msg.created_at).seconds <= 30
+            return msg.author == user and (datetime.utcnow() - msg.created_at).total_seconds() <= 30
         
         try:
             await message.channel.purge(limit=50, check=is_recent)
@@ -299,7 +297,7 @@ async def kick_spammer(message):
             pass
         
         embed = discord.Embed(
-            title="🔨 MEMBER KICKED FOR SPAM 🔨",
+            title="🔨 MEMBER KICKED FOR SPAM ",
             description=f"{user.mention} has been kicked for spamming!",
             color=discord.Color.red()
         )
@@ -316,7 +314,7 @@ async def kick_spammer(message):
         if user.id in user_messages:
             del user_messages[user.id]
         
-        print(f"🔨 KICKED FOR SPAM: {user.name}")
+        print(f" KICKED FOR SPAM: {user.name}")
         
     except discord.Forbidden:
         await message.channel.send("❌ I don't have permission to kick members!")
@@ -345,7 +343,6 @@ async def view_settings(ctx):
     embed.add_field(name="📢 PROMOTION Protection", value="✅ Warning → Kick", inline=False)
     embed.add_field(name="👥 Monitored Users", value="Regular Members ONLY", inline=False)
     embed.add_field(name="👑 Immune Users", value="Staff, Admins, Owner", inline=False)
-    
     await ctx.send(embed=embed)
 
 @bot.command(name='test')
@@ -378,16 +375,9 @@ async def test_protection(ctx):
 # TOKEN CONFIGURATION
 # ============================================
 
-import os
-try:
-    from dotenv import load_dotenv
-    load_dotenv()
-except:
-    pass
-
 TOKEN = os.getenv('DISCORD_TOKEN')
 
-if TOKEN and TOKEN != 'MTUwODQ5OTI5MDk2Njg1MTcyNw.GoK1mn.AUaw6XyFEnH_6If8-pWIynohMHbx8ZLQ8uzhyI':
+if TOKEN and TOKEN != 'YOUR_BOT_TOKEN_HERE':
     print("Starting bot...")
     bot.run(TOKEN)
 else:
